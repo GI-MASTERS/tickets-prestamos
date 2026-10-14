@@ -15,6 +15,12 @@ const loadBoards = async (date) => {
   return payload
 }
 
+const loadSyncVersion = async () => {
+  const response = await fetch('/api/sync-status', { cache: 'no-store' })
+  if (!response.ok) throw new Error('No se pudo consultar la sincronización')
+  return (await response.json()).version
+}
+
 const localDateKey = () => {
   const now = new Date()
   const month = String(now.getMonth() + 1).padStart(2, '0')
@@ -88,6 +94,7 @@ function App() {
   const bellTestInterval = useRef(null)
   const bellTestTimeout = useRef(null)
   const bellSequenceActive = useRef(false)
+  const syncVersion = useRef(null)
   const alertedReservations = useRef(new Set())
 
   const refreshBoards = async () => {
@@ -97,6 +104,11 @@ function App() {
       setSets(payload.boards)
       setReservations(payload.reservations)
       setConnection({ status: 'connected', message: '' })
+      try {
+        syncVersion.current = await loadSyncVersion()
+      } catch {
+        syncVersion.current = null
+      }
     } catch (error) {
       setSets(demoSets)
       setReservations([])
@@ -212,6 +224,24 @@ function App() {
   }, [])
 
   useEffect(() => { refreshBoards() }, [selectedDate])
+
+  useEffect(() => {
+    const checkForSync = async () => {
+      try {
+        const nextVersion = await loadSyncVersion()
+        if (!nextVersion) return
+        if (!syncVersion.current) {
+          syncVersion.current = nextVersion
+          return
+        }
+        if (nextVersion !== syncVersion.current) await refreshBoards()
+      } catch {
+        // The next status check or the manual refresh can recover from a temporary outage.
+      }
+    }
+    const interval = setInterval(checkForSync, 30000)
+    return () => clearInterval(interval)
+  }, [selectedDate])
 
   useEffect(() => {
     const checkReminders = () => {

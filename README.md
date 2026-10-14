@@ -30,8 +30,36 @@ Las reservas del día se agrupan por set en tres tableros horizontales. El panel
 5. En `Settings > Environment variables`, agregá estas variables para `Production` y `Preview`:
    - `APPSHEET_APP_ID`
    - `APPSHEET_ACCESS_KEY`
+   - `WEBHOOK_SECRET`
 6. Guardá y ejecutá un nuevo deploy.
 
-Cloudflare detecta automáticamente `functions/api/boards.js` y publica el endpoint `/api/boards`. No uses el prefijo `VITE_` en estas variables, porque la clave debe permanecer del lado del servidor.
+Cloudflare detecta automáticamente `functions/api/boards.js` y `functions/api/appsheet-webhook.js`. No uses el prefijo `VITE_` en estas variables, porque las claves deben permanecer del lado del servidor.
+
+### Cache KV
+
+En `Settings > Bindings`, creá un binding de Workers KV con:
+
+```text
+Type: KV namespace
+Variable name: RESERVAS_CACHE
+```
+
+La función guarda la agenda durante 120 segundos. Si el webhook llega antes, reemplaza la cache inmediatamente. Sin este binding la aplicación sigue funcionando, pero vuelve a consultar AppSheet en cada actualización.
+
+### Webhook de AppSheet
+
+Creá una automatización de cambio de datos sobre `Reservas` y agregá una tarea webhook:
+
+```text
+POST https://TU_PROYECTO.pages.dev/api/appsheet-webhook
+```
+
+Agregá el header:
+
+```text
+X-Webhook-Secret: el_mismo_valor_de_WEBHOOK_SECRET
+```
+
+El cuerpo puede ser el evento estándar de AppSheet. La función no depende de sus campos: recibe el evento, vuelve a leer el snapshot y actualiza KV.
 
 El archivo `server.js` se usa solo para desarrollo local. En Cloudflare Pages la consulta se ejecuta mediante Pages Functions.

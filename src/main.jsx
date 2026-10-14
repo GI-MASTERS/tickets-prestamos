@@ -66,8 +66,11 @@ function App() {
   const [query, setQuery] = useState('')
   const [connection, setConnection] = useState({ status: 'loading', message: '' })
   const [soundEnabled, setSoundEnabled] = useState(false)
+  const [bellTestActive, setBellTestActive] = useState(false)
   const [reminder, setReminder] = useState(null)
   const audioContext = useRef(null)
+  const bellTestInterval = useRef(null)
+  const bellTestTimeout = useRef(null)
   const alertedReservations = useRef(new Set())
 
   const refreshBoards = async () => {
@@ -100,11 +103,17 @@ function App() {
     oscillator.stop(context.currentTime + 0.5)
   }
 
-  const enableSound = async () => {
+  const getAudioContext = async () => {
     const AudioContext = window.AudioContext || window.webkitAudioContext
-    if (!AudioContext) return
+    if (!AudioContext) return null
     audioContext.current ||= new AudioContext()
     await audioContext.current.resume()
+    return audioContext.current
+  }
+
+  const enableSound = async () => {
+    const context = await getAudioContext()
+    if (!context) return
     setSoundEnabled(true)
     const next = reservations.find((reservation) => {
       const remaining = minutesUntil(reservation)
@@ -116,6 +125,27 @@ function App() {
       setReminder(next)
     }
   }
+
+  const testBell = async () => {
+    const context = await getAudioContext()
+    if (!context || bellTestActive) return
+
+    setSoundEnabled(true)
+    setBellTestActive(true)
+    playReminder()
+    bellTestInterval.current = setInterval(playReminder, 700)
+    bellTestTimeout.current = setTimeout(() => {
+      clearInterval(bellTestInterval.current)
+      bellTestInterval.current = null
+      bellTestTimeout.current = null
+      setBellTestActive(false)
+    }, 10000)
+  }
+
+  useEffect(() => () => {
+    clearInterval(bellTestInterval.current)
+    clearTimeout(bellTestTimeout.current)
+  }, [])
 
   useEffect(() => { refreshBoards(); const interval = setInterval(refreshBoards, 60000); return () => clearInterval(interval) }, [])
 
@@ -144,7 +174,7 @@ function App() {
     <main className="main-content" id="reservas">
       <div className="content-wrap">
         {reminder && <div className="reminder-alert" role="alert"><Icon name="bell" size={17} /><div><strong>Reserva próxima, {reminder.start}</strong><span>{reminder.title} · {reminder.set} · {reminder.room}</span></div><button onClick={() => setReminder(null)} aria-label="Cerrar recordatorio">Cerrar</button></div>}
-        <div className="toolbar kanban-toolbar"><div className="filter-tabs" role="tablist" aria-label="Filtrar sets">{[['all', 'Todos'], ...sets.map((set) => [set.id, set.label])].map(([id, label]) => <button key={id} className={activeFilter === id ? 'filter-tab selected' : 'filter-tab'} onClick={() => setActiveFilter(id)} role="tab" aria-selected={activeFilter === id}>{label}</button>)}</div><div className="toolbar-actions"><span className={`sync-status ${connection.status}`}><span />{connection.status === 'connected' ? 'Sincronizado' : connection.status === 'loading' ? 'Actualizando' : 'Sin conexión'}</span><button className={`sound-button ${soundEnabled ? 'enabled' : ''}`} onClick={enableSound}><Icon name="bell" size={16} />{soundEnabled ? 'Timbre activo' : 'Activar timbre'}</button><button className="refresh-button" onClick={refreshBoards} disabled={connection.status === 'loading'}><Icon name="refresh" size={16} />Actualizar</button><label className="search-box"><Icon name="search" size={17} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar reserva, salón o profesor" aria-label="Buscar reserva, salón o profesor" /></label></div></div>
+        <div className="toolbar kanban-toolbar"><div className="filter-tabs" role="tablist" aria-label="Filtrar sets">{[['all', 'Todos'], ...sets.map((set) => [set.id, set.label])].map(([id, label]) => <button key={id} className={activeFilter === id ? 'filter-tab selected' : 'filter-tab'} onClick={() => setActiveFilter(id)} role="tab" aria-selected={activeFilter === id}>{label}</button>)}</div><div className="toolbar-actions"><span className={`sync-status ${connection.status}`}><span />{connection.status === 'connected' ? 'Sincronizado' : connection.status === 'loading' ? 'Actualizando' : 'Sin conexión'}</span><button className={`sound-button ${soundEnabled ? 'enabled' : ''}`} onClick={enableSound}><Icon name="bell" size={16} />{soundEnabled ? 'Timbre activo' : 'Activar timbre'}</button><button className="bell-test-button" onClick={testBell} disabled={bellTestActive} aria-label="Probar el timbre durante 10 segundos"><Icon name="bell" size={16} />{bellTestActive ? 'Timbre sonando...' : 'Probar timbre (10 s)'}</button><button className="refresh-button" onClick={refreshBoards} disabled={connection.status === 'loading'}><Icon name="refresh" size={16} />Actualizar</button><label className="search-box"><Icon name="search" size={17} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar reserva, salón o profesor" aria-label="Buscar reserva, salón o profesor" /></label></div></div>
         {connection.status === 'error' && <div className="connection-alert" role="alert"><strong>No se pudo actualizar AppSheet.</strong><span>{connection.message}</span><button onClick={refreshBoards}>Reintentar</button></div>}
         {connection.status === 'loading' && <div className="loading-state" role="status"><span className="loading-spinner" />Consultando las reservas de hoy...</div>}
         <div className="boards horizontal-boards" id="sets">{filteredSets.length ? filteredSets.map((set) => <SetBoard set={set} key={set.id} />) : <div className="global-empty"><strong>No encontramos reservas</strong><span>Probá con otro nombre, salón o set.</span></div>}</div>

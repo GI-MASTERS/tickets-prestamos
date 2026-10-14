@@ -71,6 +71,7 @@ function App() {
   const audioContext = useRef(null)
   const bellTestInterval = useRef(null)
   const bellTestTimeout = useRef(null)
+  const bellSequenceActive = useRef(false)
   const alertedReservations = useRef(new Set())
 
   const refreshBoards = async () => {
@@ -142,6 +143,21 @@ function App() {
     return audioContext.current
   }
 
+  const startBellSequence = (onFinish) => {
+    if (bellSequenceActive.current) return
+    bellSequenceActive.current = true
+    playReminder()
+    speakBoardingAnnouncement()
+    bellTestInterval.current = setInterval(playReminder, 1300)
+    bellTestTimeout.current = setTimeout(() => {
+      clearInterval(bellTestInterval.current)
+      bellTestInterval.current = null
+      bellTestTimeout.current = null
+      bellSequenceActive.current = false
+      onFinish?.()
+    }, 10000)
+  }
+
   const enableSound = async () => {
     const context = await getAudioContext()
     if (!context) return
@@ -159,19 +175,11 @@ function App() {
 
   const testBell = async () => {
     const context = await getAudioContext()
-    if (!context || bellTestActive) return
+    if (!context || bellTestActive || bellSequenceActive.current) return
 
     setSoundEnabled(true)
     setBellTestActive(true)
-    playReminder()
-    speakBoardingAnnouncement()
-    bellTestInterval.current = setInterval(playReminder, 1300)
-    bellTestTimeout.current = setTimeout(() => {
-      clearInterval(bellTestInterval.current)
-      bellTestInterval.current = null
-      bellTestTimeout.current = null
-      setBellTestActive(false)
-    }, 10000)
+    startBellSequence(() => setBellTestActive(false))
   }
 
   useEffect(() => () => {
@@ -190,8 +198,7 @@ function App() {
       if (!next) return
       alertedReservations.current.add(next.id)
       if (soundEnabled) {
-        playReminder()
-        speakBoardingAnnouncement()
+        startBellSequence()
       }
       setReminder(next)
     }

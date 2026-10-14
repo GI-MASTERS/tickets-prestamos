@@ -211,7 +211,7 @@ function App() {
     }
   }, [])
 
-  useEffect(() => { refreshBoards(); const interval = setInterval(refreshBoards, 60000); return () => clearInterval(interval) }, [selectedDate])
+  useEffect(() => { refreshBoards() }, [selectedDate])
 
   useEffect(() => {
     const checkReminders = () => {

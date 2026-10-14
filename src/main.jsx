@@ -8,16 +8,23 @@ const demoSets = [
   { id: 'set-c', label: 'Set C', description: 'Sin reservas para hoy', accent: 'violet', reservations: [] },
 ]
 
-const loadBoards = async () => {
-  const response = await fetch('/api/boards')
+const loadBoards = async (date) => {
+  const response = await fetch(`/api/boards?date=${encodeURIComponent(date)}`)
   const payload = await response.json()
   if (!response.ok) throw new Error(payload.message || 'No se pudo leer AppSheet')
   return payload
 }
 
-const formatDate = () => new Intl.DateTimeFormat('es-AR', {
+const localDateKey = () => {
+  const now = new Date()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const day = String(now.getDate()).padStart(2, '0')
+  return `${now.getFullYear()}-${month}-${day}`
+}
+
+const formatDate = (value) => new Intl.DateTimeFormat('es-AR', {
   weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
-}).format(new Date())
+}).format(new Date(`${value}T12:00:00`))
 
 const timeToMinutes = (value) => {
   const [hours, minutes] = String(value || '').split(':').map(Number)
@@ -71,6 +78,7 @@ function App() {
   const [reservations, setReservations] = useState([])
   const [activeFilter, setActiveFilter] = useState('all')
   const [query, setQuery] = useState('')
+  const [selectedDate, setSelectedDate] = useState(localDateKey)
   const [connection, setConnection] = useState({ status: 'loading', message: '' })
   const [soundEnabled, setSoundEnabled] = useState(false)
   const [bellTestActive, setBellTestActive] = useState(false)
@@ -85,7 +93,7 @@ function App() {
   const refreshBoards = async () => {
     setConnection({ status: 'loading', message: '' })
     try {
-      const payload = await loadBoards()
+      const payload = await loadBoards(selectedDate)
       setSets(payload.boards)
       setReservations(payload.reservations)
       setConnection({ status: 'connected', message: '' })
@@ -203,7 +211,7 @@ function App() {
     }
   }, [])
 
-  useEffect(() => { refreshBoards(); const interval = setInterval(refreshBoards, 60000); return () => clearInterval(interval) }, [])
+  useEffect(() => { refreshBoards(); const interval = setInterval(refreshBoards, 60000); return () => clearInterval(interval) }, [selectedDate])
 
   useEffect(() => {
     const checkReminders = () => {
@@ -237,7 +245,7 @@ function App() {
     <main className="main-content" id="reservas">
       <div className="content-wrap">
         {reminder && <div className="reminder-alert" role="alert"><Icon name="bell" size={17} /><div><strong>{reminder.kind === 'end' ? `Reserva finalizada, ${reminder.end}` : `Reserva próxima, ${reminder.start}`}</strong><span>{reminder.title} · {reminder.set} · {reminder.room}</span></div><button onClick={() => setReminder(null)} aria-label="Cerrar recordatorio">Cerrar</button></div>}
-        <div className="toolbar kanban-toolbar"><div className="filter-tabs" role="tablist" aria-label="Filtrar sets">{[['all', 'Todos'], ...sets.map((set) => [set.id, set.label])].map(([id, label]) => <button key={id} className={activeFilter === id ? 'filter-tab selected' : 'filter-tab'} onClick={() => setActiveFilter(id)} role="tab" aria-selected={activeFilter === id}>{label}</button>)}</div><div className="toolbar-actions"><span className={`sync-status ${connection.status}`}><span />{connection.status === 'connected' ? 'Sincronizado' : connection.status === 'loading' ? 'Actualizando' : 'Sin conexión'}</span><span className="sound-status"><Icon name="bell" size={16} />Timbre automático</span><button className="bell-test-button" onClick={testBell} disabled={bellTestActive} aria-label="Probar el timbre durante 10 segundos"><Icon name="bell" size={16} />{bellTestActive ? 'Timbre sonando...' : 'Probar timbre (10 s)'}</button><button className="refresh-button" onClick={refreshBoards} disabled={connection.status === 'loading'}><Icon name="refresh" size={16} />Actualizar</button><label className="search-box"><Icon name="search" size={17} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar reserva, salón o profesor" aria-label="Buscar reserva, salón o profesor" /></label></div></div>
+        <div className="toolbar kanban-toolbar"><div className="filter-tabs" role="tablist" aria-label="Filtrar sets">{[['all', 'Todos'], ...sets.map((set) => [set.id, set.label])].map(([id, label]) => <button key={id} className={activeFilter === id ? 'filter-tab selected' : 'filter-tab'} onClick={() => setActiveFilter(id)} role="tab" aria-selected={activeFilter === id}>{label}</button>)}</div><div className="toolbar-actions"><span className={`sync-status ${connection.status}`}><span />{connection.status === 'connected' ? 'Sincronizado' : connection.status === 'loading' ? 'Actualizando' : 'Sin conexión'}</span><label className="date-picker"><Icon name="calendar" size={16} /><span>Ver día</span><input type="date" value={selectedDate} onChange={(event) => setSelectedDate(event.target.value)} aria-label="Seleccionar día de reservas" /></label><span className="sound-status"><Icon name="bell" size={16} />Timbre automático</span><button className="bell-test-button" onClick={testBell} disabled={bellTestActive} aria-label="Probar el timbre durante 10 segundos"><Icon name="bell" size={16} />{bellTestActive ? 'Timbre sonando...' : 'Probar timbre (10 s)'}</button><button className="refresh-button" onClick={refreshBoards} disabled={connection.status === 'loading'}><Icon name="refresh" size={16} />Actualizar</button><label className="search-box"><Icon name="search" size={17} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar reserva, salón o profesor" aria-label="Buscar reserva, salón o profesor" /></label></div></div>
         {connection.status === 'error' && <div className="connection-alert" role="alert"><strong>No se pudo actualizar AppSheet.</strong><span>{connection.message}</span><button onClick={refreshBoards}>Reintentar</button></div>}
         {connection.status === 'loading' && <div className="loading-state" role="status"><span className="loading-spinner" />Consultando las reservas de hoy...</div>}
         <div className="boards horizontal-boards" id="sets">{filteredSets.length ? filteredSets.map((set) => <SetBoard set={set} key={set.id} />) : <div className="global-empty"><strong>No encontramos reservas</strong><span>Probá con otro nombre, salón o set.</span></div>}</div>

@@ -14,6 +14,12 @@ export const todayKey = () => new Intl.DateTimeFormat('en-US', {
   timeZone: 'America/Bogota', year: 'numeric', month: '2-digit', day: '2-digit',
 }).format(new Date())
 
+const requestedDateKey = (value) => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value || '')) return todayKey()
+  const [year, month, day] = value.split('-')
+  return `${month}/${day}/${year}`
+}
+
 const dateKey = (value) => {
   const raw = text(value)
   const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})/)
@@ -31,13 +37,13 @@ const readTable = async (appId, accessKey, tableName) => {
   return Array.isArray(payload) ? payload : payload.Rows || payload.rows || []
 }
 
-const buildReservations = (reservas, sets, usuarios) => {
+const buildReservations = (reservas, sets, usuarios, selectedDate) => {
   const setById = new Map(sets.map((row) => [idOf(row, ['SetId', 'Id']), row]))
   const userById = new Map(usuarios.map((row) => [idOf(row, ['UsuarioId', 'Id']), row]))
-  const today = todayKey()
+  const date = requestedDateKey(selectedDate)
 
   return reservas
-    .filter((row) => dateKey(getValue(row, ['Fecha', 'Date'])) === today)
+    .filter((row) => dateKey(getValue(row, ['Fecha', 'Date'])) === date)
     .filter((row) => !text(getValue(row, ['Estado', 'Status'])).toLowerCase().includes('cancel'))
     .map((row) => {
       const setId = idOf(row, ['SetId', 'Set'])
@@ -70,18 +76,23 @@ const buildBoards = (sets, reservations) => sets.map((set, index) => {
   }
 })
 
-export const loadSnapshot = async (env) => {
+export const loadSnapshot = async (env, selectedDate) => {
   const appId = env.APPSHEET_APP_ID
   const accessKey = env.APPSHEET_ACCESS_KEY
   if (!appId || !accessKey) throw new Error('Faltan variables de AppSheet en Cloudflare Pages')
 
   const rows = await Promise.all(TABLES.map((table) => readTable(appId, accessKey, table)))
   const [reservas, sets, usuarios] = rows
-  const reservations = buildReservations(reservas, sets, usuarios)
-  return { boards: buildBoards(sets, reservations), reservations, date: todayKey(), source: 'appsheet' }
+  const date = selectedDate || todayKey()
+  const reservations = buildReservations(reservas, sets, usuarios, date)
+  return { boards: buildBoards(sets, reservations), reservations, date, source: 'appsheet' }
 }
 
-export const cacheKey = (request) => new Request(new URL(`/api/boards?date=${todayKey()}`, request.url), { method: 'GET' })
+export const cacheKey = (request) => {
+  const url = new URL(request.url)
+  const date = url.searchParams.get('date') || todayKey()
+  return new Request(new URL(`/api/boards?date=${date}`, request.url), { method: 'GET' })
+}
 
 export const json = (body, init = {}) => Response.json(body, {
   headers: { 'Cache-Control': 'no-store', ...(init.headers || {}) },

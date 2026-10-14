@@ -10,7 +10,8 @@ export async function onRequestGet(context) {
   }
 
   try {
-    const snapshot = await loadSnapshot(context.env)
+    const selectedDate = new URL(context.request.url).searchParams.get('date') || undefined
+    const snapshot = await loadSnapshot(context.env, selectedDate)
     if (cache) await cache.put(key, JSON.stringify(snapshot), { expirationTtl: 120 })
     return json(snapshot, { headers: { 'X-Reservations-Cache': 'MISS' } })
   } catch (error) {

@@ -47,6 +47,12 @@ const todayKey = () => new Intl.DateTimeFormat('en-US', {
   timeZone: 'America/Bogota', year: 'numeric', month: '2-digit', day: '2-digit',
 }).format(new Date())
 
+const selectedDateKey = (value) => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value || '')) return todayKey()
+  const [year, month, day] = value.split('-')
+  return `${month}/${day}/${year}`
+}
+
 const dateKey = (value) => {
   const raw = text(value)
   if (!raw) return ''
@@ -115,13 +121,13 @@ const buildBoards = ({ Reservas = [], ReservaEquipos = [], Equipos = [], Sets = 
   }))
 }
 
-const buildTodayReservations = ({ Reservas = [], Sets = [], Usuarios = [] }) => {
+const buildTodayReservations = ({ Reservas = [], Sets = [], Usuarios = [] }, selectedDate) => {
   const setById = new Map(Sets.map((row) => [idOf(row, ['SetId', 'Id']), row]))
   const userById = new Map(Usuarios.map((row) => [idOf(row, ['UsuarioId', 'Id']), row]))
-  const today = todayKey()
+  const date = selectedDateKey(selectedDate)
 
   return Reservas
-    .filter((reservation) => dateKey(getValue(reservation, ['Fecha', 'Date'])) === today)
+    .filter((reservation) => dateKey(getValue(reservation, ['Fecha', 'Date'])) === date)
     .filter((reservation) => !text(getValue(reservation, ['Estado', 'Status'])).toLowerCase().includes('cancel'))
     .map((reservation) => {
       const set = setById.get(idOf(reservation, ['SetId', 'Set']))
@@ -145,8 +151,8 @@ const buildTodayReservations = ({ Reservas = [], Sets = [], Usuarios = [] }) => 
     .sort((left, right) => `${left.start}${left.id}`.localeCompare(`${right.start}${right.id}`))
 }
 
-const buildReservationBoards = ({ Reservas = [], Sets = [], Usuarios = [] }) => {
-  const reservations = buildTodayReservations({ Reservas, Sets, Usuarios })
+const buildReservationBoards = ({ Reservas = [], Sets = [], Usuarios = [] }, selectedDate) => {
+  const reservations = buildTodayReservations({ Reservas, Sets, Usuarios }, selectedDate)
   return Sets.map((set, index) => {
     const code = idOf(set, ['SetId', 'Id'])
     return {
@@ -166,10 +172,12 @@ const sendJson = (response, status, body) => {
 
 const vite = await createViteServer({ server: { middlewareMode: true }, appType: 'spa' })
 const server = createHttpServer(async (request, response) => {
-  if (request.url === '/api/boards' && request.method === 'GET') {
+  const requestUrl = new URL(request.url, `http://${request.headers.host || 'localhost'}`)
+  if (requestUrl.pathname === '/api/boards' && request.method === 'GET') {
     try {
       const result = Object.fromEntries(await Promise.all(appSheetTables.map(async (table) => [table, await readTable(table)])))
-      sendJson(response, 200, { boards: buildReservationBoards(result), reservations: buildTodayReservations(result), date: todayKey(), source: 'appsheet', tables: Object.fromEntries(Object.entries(result).map(([table, rows]) => [table, rows.length])) })
+      const selectedDate = requestUrl.searchParams.get('date') || undefined
+      sendJson(response, 200, { boards: buildReservationBoards(result, selectedDate), reservations: buildTodayReservations(result, selectedDate), date: selectedDate || todayKey(), source: 'appsheet', tables: Object.fromEntries(Object.entries(result).map(([table, rows]) => [table, rows.length])) })
     } catch (error) {
       sendJson(response, 502, { message: error.message })
     }

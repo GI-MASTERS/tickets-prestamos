@@ -16,7 +16,7 @@ La integración usa únicamente la acción `Find` sobre estas tablas:
 - `Sets`
 - `Usuarios`
 
-Las reservas del día se agrupan por set en tres tableros horizontales. El panel se actualiza automáticamente cada 30 segundos.
+Las reservas del día se agrupan por set en tres tableros horizontales. El panel se actualiza automáticamente cada 60 segundos y el timbre revisa localmente las próximas reservas cada 15 segundos.
 
 ## Despliegue en Cloudflare Pages
 

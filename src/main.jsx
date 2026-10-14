@@ -117,7 +117,7 @@ function App() {
     }
   }
 
-  useEffect(() => { refreshBoards(); const interval = setInterval(refreshBoards, 30000); return () => clearInterval(interval) }, [])
+  useEffect(() => { refreshBoards(); const interval = setInterval(refreshBoards, 60000); return () => clearInterval(interval) }, [])
 
   useEffect(() => {
     const checkReminders = () => {
@@ -142,16 +142,12 @@ function App() {
 
   return <div className="app-shell">
     <main className="main-content" id="reservas">
-      <header className="topbar"><div className="breadcrumb"><span>Operación</span><Icon name="chevron" size={14} /><strong>Reservas</strong></div><div className="date-display"><Icon name="calendar" size={17} /><span>{formatDate()}</span></div></header>
       <div className="content-wrap">
-        <section className="intro"><div><p className="eyebrow">CONTROL DE PRÉSTAMOS / AGENDA DEL DÍA</p><h1>Reservas de hoy</h1><p className="intro-copy">Cada set muestra sus reservas programadas. Si no hay una reserva, queda disponible para operar.</p></div><div className="intro-actions"><button className={`sound-button ${soundEnabled ? 'enabled' : ''}`} onClick={enableSound}><Icon name="bell" size={16} />{soundEnabled ? 'Alertas activas' : 'Activar timbre'}</button><button className="refresh-button" onClick={refreshBoards} disabled={connection.status === 'loading'}><Icon name="refresh" size={16} />{connection.status === 'loading' ? 'Conectando...' : 'Actualizar datos'}</button></div></section>
-        {connection.status === 'error' && <div className="connection-alert" role="alert"><strong>No se pudo actualizar AppSheet.</strong><span>{connection.message}</span><button onClick={refreshBoards}>Reintentar</button></div>}
-        {connection.status === 'loading' && <div className="loading-state" role="status"><span className="loading-spinner" />Consultando las reservas de hoy en AppSheet...</div>}
         {reminder && <div className="reminder-alert" role="alert"><Icon name="bell" size={17} /><div><strong>Reserva próxima, {reminder.start}</strong><span>{reminder.title} · {reminder.set} · {reminder.room}</span></div><button onClick={() => setReminder(null)} aria-label="Cerrar recordatorio">Cerrar</button></div>}
-        <section className="summary-strip" aria-label="Resumen de reservas"><div className="summary-main"><span className="summary-number">{reservations.length}</span><span className="summary-label">reservas activas hoy</span></div><div className="summary-separator" /><div className="summary-context"><span className="summary-kicker">SETS OCUPADOS</span><strong>{sets.filter((set) => set.reservations.length).length} de {sets.length}</strong></div><div className="summary-context"><span className="summary-kicker">AVISO</span><strong>10 min antes</strong></div></section>
-        <div className="toolbar"><div className="filter-tabs" role="tablist" aria-label="Filtrar sets">{[['all', 'Todos'], ...sets.map((set) => [set.id, set.label])].map(([id, label]) => <button key={id} className={activeFilter === id ? 'filter-tab selected' : 'filter-tab'} onClick={() => setActiveFilter(id)} role="tab" aria-selected={activeFilter === id}>{label}</button>)}</div><label className="search-box"><Icon name="search" size={17} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar reserva, salón o profesor" aria-label="Buscar reserva, salón o profesor" /></label></div>
+        <div className="toolbar kanban-toolbar"><div className="filter-tabs" role="tablist" aria-label="Filtrar sets">{[['all', 'Todos'], ...sets.map((set) => [set.id, set.label])].map(([id, label]) => <button key={id} className={activeFilter === id ? 'filter-tab selected' : 'filter-tab'} onClick={() => setActiveFilter(id)} role="tab" aria-selected={activeFilter === id}>{label}</button>)}</div><div className="toolbar-actions"><span className={`sync-status ${connection.status}`}><span />{connection.status === 'connected' ? 'Sincronizado' : connection.status === 'loading' ? 'Actualizando' : 'Sin conexión'}</span><button className={`sound-button ${soundEnabled ? 'enabled' : ''}`} onClick={enableSound}><Icon name="bell" size={16} />{soundEnabled ? 'Timbre activo' : 'Activar timbre'}</button><button className="refresh-button" onClick={refreshBoards} disabled={connection.status === 'loading'}><Icon name="refresh" size={16} />Actualizar</button><label className="search-box"><Icon name="search" size={17} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar reserva, salón o profesor" aria-label="Buscar reserva, salón o profesor" /></label></div></div>
+        {connection.status === 'error' && <div className="connection-alert" role="alert"><strong>No se pudo actualizar AppSheet.</strong><span>{connection.message}</span><button onClick={refreshBoards}>Reintentar</button></div>}
+        {connection.status === 'loading' && <div className="loading-state" role="status"><span className="loading-spinner" />Consultando las reservas de hoy...</div>}
         <div className="boards horizontal-boards" id="sets">{filteredSets.length ? filteredSets.map((set) => <SetBoard set={set} key={set.id} />) : <div className="global-empty"><strong>No encontramos reservas</strong><span>Probá con otro nombre, salón o set.</span></div>}</div>
-        <footer className="page-footer"><span>{connection.status === 'connected' ? 'Datos sincronizados desde AppSheet' : 'Datos de demostración, no representan reservas reales'}</span><span>Lectura en tiempo real cada 30 segundos · Sin acciones de escritura</span></footer>
       </div>
     </main>
   </div>

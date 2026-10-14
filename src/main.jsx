@@ -90,17 +90,48 @@ function App() {
   const playReminder = () => {
     const context = audioContext.current
     if (!context) return
-    const oscillator = context.createOscillator()
-    const gain = context.createGain()
-    oscillator.type = 'sine'
-    oscillator.frequency.setValueAtTime(880, context.currentTime)
-    oscillator.frequency.setValueAtTime(660, context.currentTime + 0.18)
-    gain.gain.setValueAtTime(0.0001, context.currentTime)
-    gain.gain.exponentialRampToValueAtTime(0.18, context.currentTime + 0.02)
-    gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.5)
-    oscillator.connect(gain).connect(context.destination)
-    oscillator.start()
-    oscillator.stop(context.currentTime + 0.5)
+    const start = context.currentTime
+    const masterGain = context.createGain()
+    masterGain.gain.setValueAtTime(0.82, start)
+    masterGain.connect(context.destination)
+
+    // Aviso de embarque: cuatro tonos cortos, con un segundo armónico para hacerlo más reconocible.
+    ;[523.25, 659.25, 783.99, 659.25].forEach((frequency, index) => {
+      const noteStart = start + index * 0.16
+      const noteEnd = noteStart + 0.52
+      const noteGain = context.createGain()
+      noteGain.gain.setValueAtTime(0.0001, noteStart)
+      noteGain.gain.exponentialRampToValueAtTime(0.34, noteStart + 0.025)
+      noteGain.gain.exponentialRampToValueAtTime(0.0001, noteEnd)
+      noteGain.connect(masterGain)
+
+      const tone = context.createOscillator()
+      tone.type = 'triangle'
+      tone.frequency.setValueAtTime(frequency, noteStart)
+      tone.connect(noteGain)
+      tone.start(noteStart)
+      tone.stop(noteEnd)
+
+      const harmonic = context.createOscillator()
+      harmonic.type = 'sine'
+      harmonic.frequency.setValueAtTime(frequency * 2, noteStart)
+      harmonic.connect(noteGain)
+      harmonic.start(noteStart)
+      harmonic.stop(noteEnd)
+    })
+  }
+
+  const speakBoardingAnnouncement = () => {
+    if (!('speechSynthesis' in window)) return
+    window.speechSynthesis.cancel()
+    const announcement = new SpeechSynthesisUtterance('Pasajeros de sistemas, por favor diríjanse a su destino antes de que lleguen tarde.')
+    announcement.lang = 'es-AR'
+    announcement.rate = 1.08
+    announcement.pitch = 1.4
+    announcement.volume = 1
+    const spanishVoice = window.speechSynthesis.getVoices().find((voice) => voice.lang.toLowerCase().startsWith('es'))
+    if (spanishVoice) announcement.voice = spanishVoice
+    window.speechSynthesis.speak(announcement)
   }
 
   const getAudioContext = async () => {
@@ -133,7 +164,8 @@ function App() {
     setSoundEnabled(true)
     setBellTestActive(true)
     playReminder()
-    bellTestInterval.current = setInterval(playReminder, 700)
+    speakBoardingAnnouncement()
+    bellTestInterval.current = setInterval(playReminder, 1300)
     bellTestTimeout.current = setTimeout(() => {
       clearInterval(bellTestInterval.current)
       bellTestInterval.current = null
@@ -157,7 +189,10 @@ function App() {
       })
       if (!next) return
       alertedReservations.current.add(next.id)
-      if (soundEnabled) playReminder()
+      if (soundEnabled) {
+        playReminder()
+        speakBoardingAnnouncement()
+      }
       setReminder(next)
     }
     checkReminders()

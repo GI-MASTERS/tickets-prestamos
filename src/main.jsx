@@ -76,6 +76,7 @@ function App() {
   const [bellTestActive, setBellTestActive] = useState(false)
   const [reminder, setReminder] = useState(null)
   const audioContext = useRef(null)
+  const boardingAudio = useRef(null)
   const bellTestInterval = useRef(null)
   const bellTestTimeout = useRef(null)
   const bellSequenceActive = useRef(false)
@@ -142,6 +143,13 @@ function App() {
     window.speechSynthesis.speak(announcement)
   }
 
+  const playBoardingAudio = () => {
+    boardingAudio.current ||= new Audio('/boarding-chime.mp3')
+    boardingAudio.current.currentTime = 0
+    boardingAudio.current.volume = 1
+    boardingAudio.current.play().catch(playReminder)
+  }
+
   const getAudioContext = async () => {
     const AudioContext = window.AudioContext || window.webkitAudioContext
     if (!AudioContext) return null
@@ -153,9 +161,9 @@ function App() {
   const startBellSequence = (onFinish) => {
     if (bellSequenceActive.current) return
     bellSequenceActive.current = true
-    playReminder()
+    playBoardingAudio()
     speakBoardingAnnouncement()
-    bellTestInterval.current = setInterval(playReminder, 1300)
+    bellTestInterval.current = setInterval(playBoardingAudio, 3400)
     bellTestTimeout.current = setTimeout(() => {
       clearInterval(bellTestInterval.current)
       bellTestInterval.current = null

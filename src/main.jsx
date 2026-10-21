@@ -1,6 +1,9 @@
 import { StrictMode, useEffect, useMemo, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
+import { Capacitor } from '@capacitor/core'
 import './styles.css'
+
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '')
 
 const demoSets = [
   { id: 'set-a', label: 'Set A', description: 'Sin reservas para hoy', accent: 'blue', reservations: [] },
@@ -9,14 +12,14 @@ const demoSets = [
 ]
 
 const loadBoards = async (date) => {
-  const response = await fetch(`/api/boards?date=${encodeURIComponent(date)}`)
+  const response = await fetch(`${API_BASE_URL}/api/boards?date=${encodeURIComponent(date)}`)
   const payload = await response.json()
   if (!response.ok) throw new Error(payload.message || 'No se pudo leer AppSheet')
   return payload
 }
 
 const loadSyncVersion = async () => {
-  const response = await fetch('/api/sync-status', { cache: 'no-store' })
+  const response = await fetch(`${API_BASE_URL}/api/sync-status`, { cache: 'no-store' })
   if (!response.ok) throw new Error('No se pudo consultar la sincronización')
   return (await response.json()).version
 }
@@ -87,6 +90,7 @@ function App() {
   const [selectedDate, setSelectedDate] = useState(localDateKey)
   const [connection, setConnection] = useState({ status: 'loading', message: '' })
   const [soundEnabled, setSoundEnabled] = useState(false)
+  const [phoneNotifications, setPhoneNotifications] = useState(Capacitor.isNativePlatform() ? 'idle' : 'web')
   const [bellTestActive, setBellTestActive] = useState(false)
   const [reminder, setReminder] = useState(null)
   const audioContext = useRef(null)
@@ -95,6 +99,7 @@ function App() {
   const bellTestTimeout = useRef(null)
   const bellSequenceActive = useRef(false)
   const syncVersion = useRef(null)
+  const oneSignalClient = useRef(null)
   const alertedReservations = useRef(new Set())
 
   const refreshBoards = async () => {
@@ -202,6 +207,22 @@ function App() {
     startBellSequence(() => setBellTestActive(false))
   }
 
+  const enablePhoneNotifications = async () => {
+    if (!Capacitor.isNativePlatform() || !import.meta.env.VITE_ONESIGNAL_APP_ID) return
+    setPhoneNotifications('loading')
+    try {
+      if (!oneSignalClient.current) {
+        const { default: OneSignal } = await import('onesignal-cordova-plugin')
+        OneSignal.initialize(import.meta.env.VITE_ONESIGNAL_APP_ID)
+        oneSignalClient.current = OneSignal
+      }
+      const granted = await oneSignalClient.current.Notifications.requestPermission(true)
+      setPhoneNotifications(granted ? 'enabled' : 'denied')
+    } catch {
+      setPhoneNotifications('error')
+    }
+  }
+
   useEffect(() => () => {
     clearInterval(bellTestInterval.current)
     clearTimeout(bellTestTimeout.current)
@@ -221,6 +242,15 @@ function App() {
       window.removeEventListener('pointerdown', unlockSound)
       window.removeEventListener('keydown', unlockSound)
     }
+  }, [])
+
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform() || !import.meta.env.VITE_ONESIGNAL_APP_ID) return
+    import('onesignal-cordova-plugin').then(({ default: OneSignal }) => {
+      OneSignal.initialize(import.meta.env.VITE_ONESIGNAL_APP_ID)
+      oneSignalClient.current = OneSignal
+      OneSignal.Notifications.getPermissionAsync().then((granted) => setPhoneNotifications(granted ? 'enabled' : 'idle'))
+    }).catch(() => setPhoneNotifications('error'))
   }, [])
 
   useEffect(() => { refreshBoards() }, [selectedDate])
@@ -275,7 +305,7 @@ function App() {
     <main className="main-content" id="reservas">
       <div className="content-wrap">
         {reminder && <div className="reminder-alert" role="alert"><Icon name="bell" size={17} /><div><strong>{reminder.kind === 'end' ? `Reserva finalizada, ${reminder.end}` : `Reserva próxima, ${reminder.start}`}</strong><span>{reminder.title} · {reminder.set} · {reminder.room}</span></div><button onClick={() => setReminder(null)} aria-label="Cerrar recordatorio">Cerrar</button></div>}
-        <div className="toolbar kanban-toolbar"><div className="filter-tabs" role="tablist" aria-label="Filtrar sets">{[['all', 'Todos'], ...sets.map((set) => [set.id, set.label])].map(([id, label]) => <button key={id} className={activeFilter === id ? 'filter-tab selected' : 'filter-tab'} onClick={() => setActiveFilter(id)} role="tab" aria-selected={activeFilter === id}>{label}</button>)}</div><div className="toolbar-actions"><span className={`sync-status ${connection.status}`}><span />{connection.status === 'connected' ? 'Sincronizado' : connection.status === 'loading' ? 'Actualizando' : 'Sin conexión'}</span><label className="date-picker"><Icon name="calendar" size={16} /><span>Ver día</span><input type="date" value={selectedDate} onChange={(event) => setSelectedDate(event.target.value)} aria-label="Seleccionar día de reservas" /></label><span className="sound-status"><Icon name="bell" size={16} />Timbre automático</span><button className="bell-test-button" onClick={testBell} disabled={bellTestActive} aria-label="Probar el timbre durante 10 segundos"><Icon name="bell" size={16} />{bellTestActive ? 'Timbre sonando...' : 'Probar timbre (10 s)'}</button><button className="refresh-button" onClick={refreshBoards} disabled={connection.status === 'loading'}><Icon name="refresh" size={16} />Actualizar</button><label className="search-box"><Icon name="search" size={17} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar reserva, salón o profesor" aria-label="Buscar reserva, salón o profesor" /></label></div></div>
+        <div className="toolbar kanban-toolbar"><div className="filter-tabs" role="tablist" aria-label="Filtrar sets">{[['all', 'Todos'], ...sets.map((set) => [set.id, set.label])].map(([id, label]) => <button key={id} className={activeFilter === id ? 'filter-tab selected' : 'filter-tab'} onClick={() => setActiveFilter(id)} role="tab" aria-selected={activeFilter === id}>{label}</button>)}</div><div className="toolbar-actions"><span className={`sync-status ${connection.status}`}><span />{connection.status === 'connected' ? 'Sincronizado' : connection.status === 'loading' ? 'Actualizando' : 'Sin conexión'}</span><label className="date-picker"><Icon name="calendar" size={16} /><span>Ver día</span><input type="date" value={selectedDate} onChange={(event) => setSelectedDate(event.target.value)} aria-label="Seleccionar día de reservas" /></label><span className="sound-status"><Icon name="bell" size={16} />Timbre automático</span>{Capacitor.isNativePlatform() && <button className={`notification-button ${phoneNotifications}`} onClick={enablePhoneNotifications} disabled={phoneNotifications === 'loading' || phoneNotifications === 'enabled'}><Icon name="bell" size={16} />{phoneNotifications === 'enabled' ? 'Avisos activos' : phoneNotifications === 'loading' ? 'Activando...' : phoneNotifications === 'denied' ? 'Permiso bloqueado' : phoneNotifications === 'error' ? 'Reintentar avisos' : 'Avisos al teléfono'}</button>}<button className="bell-test-button" onClick={testBell} disabled={bellTestActive} aria-label="Probar el timbre durante 10 segundos"><Icon name="bell" size={16} />{bellTestActive ? 'Timbre sonando...' : 'Probar timbre (10 s)'}</button><button className="refresh-button" onClick={refreshBoards} disabled={connection.status === 'loading'}><Icon name="refresh" size={16} />Actualizar</button><label className="search-box"><Icon name="search" size={17} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar reserva, salón o profesor" aria-label="Buscar reserva, salón o profesor" /></label></div></div>
         {connection.status === 'error' && <div className="connection-alert" role="alert"><strong>No se pudo actualizar AppSheet.</strong><span>{connection.message}</span><button onClick={refreshBoards}>Reintentar</button></div>}
         {connection.status === 'loading' && <div className="loading-state" role="status"><span className="loading-spinner" />Consultando las reservas de hoy...</div>}
         <div className="boards horizontal-boards" id="sets">{filteredSets.length ? filteredSets.map((set) => <SetBoard set={set} key={set.id} />) : <div className="global-empty"><strong>No encontramos reservas</strong><span>Probá con otro nombre, salón o set.</span></div>}</div>

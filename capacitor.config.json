@@ -1,0 +1,10 @@
+{
+  "appId": "com.gimasters.ticketsprestamos",
+  "appName": "Control de préstamos",
+  "webDir": "dist",
+  "plugins": {
+    "OneSignal": {
+      "smallIcon": "ic_stat_onesignal_default"
+    }
+  }
+}

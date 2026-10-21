@@ -7,13 +7,20 @@
     "dev": "node server.js",
     "dev:client": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "android:sync": "npx cap sync android",
+    "android:open": "npx cap open android"
   },
   "dependencies": {
+    "@capacitor/android": "^8.4.3",
+    "@capacitor/core": "^8.4.3",
     "@vitejs/plugin-react": "latest",
-    "vite": "latest",
+    "onesignal-cordova-plugin": "^5.6.1",
     "react": "latest",
-    "react-dom": "latest"
+    "react-dom": "latest",
+    "vite": "latest"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "@capacitor/cli": "^8.4.3"
+  }
 }

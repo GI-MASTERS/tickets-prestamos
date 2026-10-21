@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { Capacitor } from '@capacitor/core'
 import './styles.css'
 
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '')
+const API_BASE_URL = (import.meta.env.API_BASE_URL || '').replace(/\/$/, '')
 
 const demoSets = [
   { id: 'set-a', label: 'Set A', description: 'Sin reservas para hoy', accent: 'blue', reservations: [] },
@@ -208,12 +208,12 @@ function App() {
   }
 
   const enablePhoneNotifications = async () => {
-    if (!Capacitor.isNativePlatform() || !import.meta.env.VITE_ONESIGNAL_APP_ID) return
+    if (!Capacitor.isNativePlatform() || !import.meta.env.ONESIGNAL_APP_ID) return
     setPhoneNotifications('loading')
     try {
       if (!oneSignalClient.current) {
         const { default: OneSignal } = await import('onesignal-cordova-plugin')
-        OneSignal.initialize(import.meta.env.VITE_ONESIGNAL_APP_ID)
+        OneSignal.initialize(import.meta.env.ONESIGNAL_APP_ID)
         oneSignalClient.current = OneSignal
       }
       const granted = await oneSignalClient.current.Notifications.requestPermission(true)
@@ -245,9 +245,9 @@ function App() {
   }, [])
 
   useEffect(() => {
-    if (!Capacitor.isNativePlatform() || !import.meta.env.VITE_ONESIGNAL_APP_ID) return
+    if (!Capacitor.isNativePlatform() || !import.meta.env.ONESIGNAL_APP_ID) return
     import('onesignal-cordova-plugin').then(({ default: OneSignal }) => {
-      OneSignal.initialize(import.meta.env.VITE_ONESIGNAL_APP_ID)
+      OneSignal.initialize(import.meta.env.ONESIGNAL_APP_ID)
       oneSignalClient.current = OneSignal
       OneSignal.Notifications.getPermissionAsync().then((granted) => setPhoneNotifications(granted ? 'enabled' : 'idle'))
     }).catch(() => setPhoneNotifications('error'))

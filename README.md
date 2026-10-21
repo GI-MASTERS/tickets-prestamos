@@ -74,8 +74,8 @@ La carpeta `android/` contiene una aplicación Capacitor instalable directamente
 
 1. Creá una cuenta en OneSignal y una aplicación Android con el identificador `com.gimasters.ticketsprestamos`.
 2. Completá en OneSignal la configuración de Firebase Cloud Messaging que solicita su asistente.
-3. Copiá el OneSignal App ID en `.env` como `VITE_ONESIGNAL_APP_ID`.
-4. Configurá en `.env` la URL pública de Cloudflare como `VITE_API_BASE_URL`.
+3. Copiá el OneSignal App ID en `.env` como `ONESIGNAL_APP_ID`.
+4. Configurá en `.env` la URL pública de Cloudflare como `API_BASE_URL`.
 5. Agregá `ONESIGNAL_APP_ID` y `ONESIGNAL_REST_API_KEY` como secretos de Cloudflare Pages.
 6. Configurá la automatización de AppSheet para invocar el webhook solo al agregar una reserva. Cada llamada enviará una notificación a los teléfonos suscritos.
 

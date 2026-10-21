@@ -106,8 +106,10 @@ Los tres webhooks deben incluir `X-Webhook-Secret`. Android reproduce `boarding_
 ```bash
 npm run build
 npm run android:sync
-android/gradlew assembleDebug
+npm run android:apk
 ```
+
+Si preferís ejecutar Gradle directamente desde la raíz del repositorio, usá `./android/gradlew -p android assembleDebug`. La opción `-p android` es necesaria porque `settings.gradle` está dentro de esa carpeta.
 
 El APK queda en `android/app/build/outputs/apk/debug/app-debug.apk`. Se instala habilitando temporalmente la instalación desde orígenes desconocidos. Para distribución estable conviene generar y conservar una clave de firma release; sin la misma clave no se pueden instalar actualizaciones encima de versiones anteriores.
 

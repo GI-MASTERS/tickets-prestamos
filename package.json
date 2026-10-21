@@ -9,7 +9,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "android:sync": "npx cap sync android",
-    "android:open": "npx cap open android"
+    "android:open": "npx cap open android",
+    "android:apk": "./android/gradlew -p android assembleDebug"
   },
   "dependencies": {
     "@capacitor/android": "^8.4.3",

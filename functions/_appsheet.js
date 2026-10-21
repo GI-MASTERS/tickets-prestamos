@@ -95,6 +95,12 @@ export const cacheKey = (request) => {
 }
 
 export const json = (body, init = {}) => Response.json(body, {
-  headers: { 'Cache-Control': 'no-store', ...(init.headers || {}) },
   ...init,
+  headers: {
+    'Cache-Control': 'no-store',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, X-Webhook-Secret',
+    ...(init.headers || {}),
+  },
 })
